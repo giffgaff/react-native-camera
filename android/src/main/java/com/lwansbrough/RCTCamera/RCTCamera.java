@@ -22,8 +22,6 @@ public class RCTCamera {
     private static final Resolution RESOLUTION_480P = new Resolution(853, 480); // 480p shoots for a 16:9 HD aspect ratio, but can otherwise fall back/down to any other supported camera sizes, such as 800x480 or 720x480, if (any) present. See getSupportedPictureSizes/getSupportedVideoSizes below.
     private static final Resolution RESOLUTION_720P = new Resolution(1280, 720);
     private static final Resolution RESOLUTION_1080P = new Resolution(1920, 1080);
-    private boolean _barcodeScannerEnabled = false;
-    private List<String> _barCodeTypes = null;
     private int _orientation = -1;
     private int _actualDeviceOrientation = 0;
     private int _adjustedDeviceOrientation = 0;
@@ -175,22 +173,6 @@ public class RCTCamera {
         _orientation = orientation;
         adjustPreviewLayout(RCTCameraModule.RCT_CAMERA_TYPE_FRONT);
         adjustPreviewLayout(RCTCameraModule.RCT_CAMERA_TYPE_BACK);
-    }
-
-    public boolean isBarcodeScannerEnabled() {
-      return _barcodeScannerEnabled;
-    }
-
-    public void setBarcodeScannerEnabled(boolean barcodeScannerEnabled) {
-        _barcodeScannerEnabled = barcodeScannerEnabled;
-    }
-
-    public List<String> getBarCodeTypes() {
-        return _barCodeTypes;
-    }
-
-    public void setBarCodeTypes(List<String> barCodeTypes) {
-        _barCodeTypes = barCodeTypes;
     }
 
     public int getActualDeviceOrientation() {

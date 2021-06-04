@@ -128,14 +128,6 @@ public class RCTCameraView extends ViewGroup {
         }
     }
 
-    public void setBarcodeScannerEnabled(boolean barcodeScannerEnabled) {
-        RCTCamera.getInstance().setBarcodeScannerEnabled(barcodeScannerEnabled);
-    }
-
-    public void setBarCodeTypes(List<String> types) {
-        RCTCamera.getInstance().setBarCodeTypes(types);
-    }
-
     public void setClearWindowBackground(boolean clearWindowBackground) {
         this._clearWindowBackground = clearWindowBackground;
         if (this._viewFinder != null) {

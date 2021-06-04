@@ -26,15 +26,6 @@ import java.util.List;
 import java.util.EnumMap;
 import java.util.EnumSet;
 
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.BinaryBitmap;
-import com.google.zxing.DecodeHintType;
-import com.google.zxing.MultiFormatReader;
-import com.google.zxing.PlanarYUVLuminanceSource;
-import com.google.zxing.Result;
-import com.google.zxing.ResultPoint;
-import com.google.zxing.common.HybridBinarizer;
-
 class RCTCameraViewFinder extends TextureView implements TextureView.SurfaceTextureListener, Camera.PreviewCallback {
     private int _cameraType;
     private int _captureMode;
@@ -47,17 +38,10 @@ class RCTCameraViewFinder extends TextureView implements TextureView.SurfaceText
     private boolean _clearWindowBackground = false;
     private float mFingerSpacing;
 
-    // concurrency lock for barcode scanner to avoid flooding the runtime
-    public static volatile boolean barcodeScannerTaskLock = false;
-
-    // reader instance for the barcode scanner
-    private final MultiFormatReader _multiFormatReader = new MultiFormatReader();
-
     public RCTCameraViewFinder(Context context, int type) {
         super(context);
         this.setSurfaceTextureListener(this);
         this._cameraType = type;
-        this.initBarcodeReader(RCTCamera.getInstance().getBarCodeTypes());
     }
 
     @Override
@@ -248,195 +232,13 @@ class RCTCameraViewFinder extends TextureView implements TextureView.SurfaceText
     }
 
     /**
-     * Parse barcodes as BarcodeFormat constants.
-     *
-     * Supports all iOS codes except [code39mod43, itf14]
-     *
-     * Additionally supports [codabar, maxicode, rss14, rssexpanded, upca, upceanextension]
-     */
-    private BarcodeFormat parseBarCodeString(String c) {
-        if ("aztec".equals(c)) {
-            return BarcodeFormat.AZTEC;
-        } else if ("ean13".equals(c)) {
-            return BarcodeFormat.EAN_13;
-        } else if ("ean8".equals(c)) {
-            return BarcodeFormat.EAN_8;
-        } else if ("qr".equals(c)) {
-            return BarcodeFormat.QR_CODE;
-        } else if ("pdf417".equals(c)) {
-            return BarcodeFormat.PDF_417;
-        } else if ("upce".equals(c)) {
-            return BarcodeFormat.UPC_E;
-        } else if ("datamatrix".equals(c)) {
-            return BarcodeFormat.DATA_MATRIX;
-        } else if ("code39".equals(c)) {
-            return BarcodeFormat.CODE_39;
-        } else if ("code93".equals(c)) {
-            return BarcodeFormat.CODE_93;
-        } else if ("interleaved2of5".equals(c)) {
-            return BarcodeFormat.ITF;
-        } else if ("codabar".equals(c)) {
-            return BarcodeFormat.CODABAR;
-        } else if ("code128".equals(c)) {
-            return BarcodeFormat.CODE_128;
-        } else if ("maxicode".equals(c)) {
-            return BarcodeFormat.MAXICODE;
-        } else if ("rss14".equals(c)) {
-            return BarcodeFormat.RSS_14;
-        } else if ("rssexpanded".equals(c)) {
-            return BarcodeFormat.RSS_EXPANDED;
-        } else if ("upca".equals(c)) {
-            return BarcodeFormat.UPC_A;
-        } else if ("upceanextension".equals(c)) {
-            return BarcodeFormat.UPC_EAN_EXTENSION;
-        } else {
-            android.util.Log.v("RCTCamera", "Unsupported code.. [" + c + "]");
-            return null;
-        }
-    }
-
-    /**
-     * Initialize the barcode decoder.
-     */
-    private void initBarcodeReader(List<String> barCodeTypes) {
-        EnumMap<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
-        EnumSet<BarcodeFormat> decodeFormats = EnumSet.noneOf(BarcodeFormat.class);
-
-        if (barCodeTypes != null) {
-            for (String code : barCodeTypes) {
-                BarcodeFormat format = parseBarCodeString(code);
-                if (format != null) {
-                    decodeFormats.add(format);
-                }
-            }
-        }
-
-        hints.put(DecodeHintType.POSSIBLE_FORMATS, decodeFormats);
-        _multiFormatReader.setHints(hints);
-    }
-
-    /**
      * Spawn a barcode reader task if
      *  - the barcode scanner is enabled (has a onBarCodeRead function)
      *  - one isn't already running
      *
      * See {Camera.PreviewCallback}
      */
-    public void onPreviewFrame(byte[] data, Camera camera) {
-        if (RCTCamera.getInstance().isBarcodeScannerEnabled() && !RCTCameraViewFinder.barcodeScannerTaskLock) {
-            RCTCameraViewFinder.barcodeScannerTaskLock = true;
-            new ReaderAsyncTask(camera, data).execute();
-        }
-    }
-
-    private class ReaderAsyncTask extends AsyncTask<Void, Void, Void> {
-        private byte[] imageData;
-        private final Camera camera;
-
-        ReaderAsyncTask(Camera camera, byte[] imageData) {
-            this.camera = camera;
-            this.imageData = imageData;
-        }
-
-        private Result getBarcode(int width, int height, boolean inverse) {
-            try{
-                PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(imageData, width, height, 0, 0, width, height, false);
-                BinaryBitmap bitmap;
-                if (inverse) {
-                    bitmap = new BinaryBitmap(new HybridBinarizer(source.invert()));
-                } else {
-                    bitmap = new BinaryBitmap(new HybridBinarizer(source));
-                }
-                return _multiFormatReader.decodeWithState(bitmap);
-            } catch (Throwable t) {
-                // meh
-            } finally {
-                _multiFormatReader.reset();
-            }
-            return null;
-        }
-
-        private Result getBarcodeAnyOrientation() {
-            Camera.Size size = camera.getParameters().getPreviewSize();
-
-            int width = size.width;
-            int height = size.height;
-            Result result = getBarcode(width, height, false);
-            if (result != null) {
-                return result;
-            }
-            // inverse
-            result = getBarcode(width, height, true);
-            if (result != null) {
-                return result;
-            }
-            // rotate
-            rotateImage(width, height);
-            width = size.height;
-            height = size.width;
-            result = getBarcode(width, height, false);
-            if (result != null) {
-                return result;
-            }
-            return getBarcode(width, height, true);
-
-        }
-
-        private void rotateImage(int width, int height) {
-            byte[] rotated = new byte[imageData.length];
-            for (int y = 0; y < width; y++) {
-                for (int x = 0; x < height; x++) {
-                    int sourceIx = x + y * height;
-                    int destIx = x * width + width - y - 1;
-                    if (sourceIx >= 0 && sourceIx < imageData.length && destIx >= 0 && destIx < imageData.length) {
-                        rotated[destIx] = imageData[sourceIx];
-                    }
-                }
-            }
-            imageData = rotated;
-        }
-
-        @Override
-        protected Void doInBackground(Void... ignored) {
-            if (isCancelled()) {
-                return null;
-            }
-
-            try {
-                // rotate for zxing if orientation is portrait
-                Result result = getBarcodeAnyOrientation();
-                if (result == null){
-                    throw new Exception();
-                }
-
-                ReactContext reactContext = RCTCameraModule.getReactContextSingleton();
-                WritableMap event = Arguments.createMap();
-                WritableArray resultPoints = Arguments.createArray();
-                ResultPoint[] points = result.getResultPoints();
-
-                if(points != null) {
-                    for (ResultPoint point : points) {
-                        WritableMap newPoint = Arguments.createMap();
-                        newPoint.putString("x", String.valueOf(point.getX()));
-                        newPoint.putString("y", String.valueOf(point.getY()));
-                        resultPoints.pushMap(newPoint);
-                    }
-                }
-
-                event.putArray("bounds", resultPoints);
-                event.putString("data", result.getText());
-                event.putString("type", result.getBarcodeFormat().toString());
-                reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("CameraBarCodeReadAndroid", event);
-
-            } catch (Throwable t) {
-                // meh
-            } finally {
-                _multiFormatReader.reset();
-                RCTCameraViewFinder.barcodeScannerTaskLock = false;
-                return null;
-            }
-        }
-    }
+    public void onPreviewFrame(byte[] data, Camera camera) { }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {

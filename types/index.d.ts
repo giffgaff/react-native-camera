@@ -73,8 +73,8 @@ type VideoCodec = Readonly<{
   AppleProRes4444: symbol;
 }>;
 type ImageType = Readonly<{
-  'jpeg': any;
-  'png': any;
+  jpeg: any;
+  png: any;
 }>;
 
 type FaceDetectionClassifications = Readonly<{ all: any; none: any }>;
@@ -107,13 +107,11 @@ type RecordAudioPermissionStatus = Readonly<
     NOT_AUTHORIZED: 'NOT_AUTHORIZED';
   }>
 >;
-type FaCC = (
-  params: {
-    camera: RNCamera;
-    status: keyof CameraStatus;
-    recordAudioPermissionStatus: keyof RecordAudioPermissionStatus;
-  },
-) => JSX.Element;
+type FaCC = (params: {
+  camera: RNCamera;
+  status: keyof CameraStatus;
+  recordAudioPermissionStatus: keyof RecordAudioPermissionStatus;
+}) => JSX.Element;
 
 export interface Constants {
   CameraStatus: CameraStatus;
@@ -293,7 +291,7 @@ interface Size<T = number> {
   height: T;
 }
 
-interface RectOfInterest extends Point,Size{}
+interface RectOfInterest extends Point, Size {}
 
 export interface Barcode {
   bounds: {
